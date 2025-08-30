@@ -573,14 +573,23 @@ class ScheduleLogger {
     }
 
     formatDateTime(datetime) {
-        const date = new Date(datetime);
+        // Handle datetime-local input format properly
+        let date;
+        if (typeof datetime === 'string' && datetime.includes('T') && !datetime.includes('Z') && !datetime.includes('+')) {
+            // This is a datetime-local format (YYYY-MM-DDTHH:MM), treat as local time
+            date = new Date(datetime + ':00'); // Add seconds if missing
+        } else {
+            date = new Date(datetime);
+        }
+        
         const options = {
             weekday: 'short',
             year: 'numeric',
             month: 'short',
             day: 'numeric',
             hour: '2-digit',
-            minute: '2-digit'
+            minute: '2-digit',
+            timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
         };
         return date.toLocaleDateString('en-US', options);
     }
@@ -660,7 +669,20 @@ class ScheduleLogger {
         const filteredActivities = this.getFilteredActivities();
         
         // Sort by datetime (newest first)
-        filteredActivities.sort((a, b) => new Date(b.datetime) - new Date(a.datetime));
+        filteredActivities.sort((a, b) => {
+            let dateA, dateB;
+            if (typeof a.datetime === 'string' && a.datetime.includes('T') && !a.datetime.includes('Z') && !a.datetime.includes('+')) {
+                dateA = new Date(a.datetime + ':00');
+            } else {
+                dateA = new Date(a.datetime);
+            }
+            if (typeof b.datetime === 'string' && b.datetime.includes('T') && !b.datetime.includes('Z') && !b.datetime.includes('+')) {
+                dateB = new Date(b.datetime + ':00');
+            } else {
+                dateB = new Date(b.datetime);
+            }
+            return dateB - dateA;
+        });
 
         if (filteredActivities.length === 0) {
             container.innerHTML = `
@@ -786,17 +808,45 @@ class ScheduleLogger {
         const filteredActivities = this.getFilteredActivities();
         
         return filteredActivities.filter(activity => {
-            const activityDate = this.getDateString(new Date(activity.datetime));
-            return activityDate === dateStr;
-        }).sort((a, b) => new Date(a.datetime) - new Date(b.datetime));
+            // Handle datetime-local format properly
+            let activityDate;
+            if (typeof activity.datetime === 'string' && activity.datetime.includes('T') && !activity.datetime.includes('Z') && !activity.datetime.includes('+')) {
+                activityDate = new Date(activity.datetime + ':00');
+            } else {
+                activityDate = new Date(activity.datetime);
+            }
+            return this.getDateString(activityDate) === dateStr;
+        }).sort((a, b) => {
+            let dateA, dateB;
+            if (typeof a.datetime === 'string' && a.datetime.includes('T') && !a.datetime.includes('Z') && !a.datetime.includes('+')) {
+                dateA = new Date(a.datetime + ':00');
+            } else {
+                dateA = new Date(a.datetime);
+            }
+            if (typeof b.datetime === 'string' && b.datetime.includes('T') && !b.datetime.includes('Z') && !b.datetime.includes('+')) {
+                dateB = new Date(b.datetime + ':00');
+            } else {
+                dateB = new Date(b.datetime);
+            }
+            return dateA - dateB;
+        });
     }
 
     formatTime(datetime) {
-        const date = new Date(datetime);
+        // Handle datetime-local input format properly
+        let date;
+        if (typeof datetime === 'string' && datetime.includes('T') && !datetime.includes('Z') && !datetime.includes('+')) {
+            // This is a datetime-local format (YYYY-MM-DDTHH:MM), treat as local time
+            date = new Date(datetime + ':00'); // Add seconds if missing
+        } else {
+            date = new Date(datetime);
+        }
+        
         return date.toLocaleTimeString('en-US', { 
             hour: '2-digit', 
             minute: '2-digit',
-            hour12: true
+            hour12: true,
+            timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
         });
     }
 
@@ -1370,7 +1420,21 @@ Click Cancel if you have existing data on another device
             const content = gist.files['schedule-data.json'].content;
             const data = JSON.parse(content);
             
-            // Always load cloud data when manually requested
+            // Compare current data with cloud data
+            const currentActivities = JSON.stringify(this.activities);
+            const currentCategories = JSON.stringify(this.categories);
+            const currentAppTitle = this.appTitle;
+            
+            const cloudActivities = JSON.stringify(data.activities || []);
+            const cloudCategories = JSON.stringify(data.categories || this.getDefaultCategories());
+            const cloudAppTitle = data.appTitle || 'My Personal Schedule';
+            
+            // Check if data has actually changed
+            const hasChanges = currentActivities !== cloudActivities || 
+                             currentCategories !== cloudCategories || 
+                             currentAppTitle !== cloudAppTitle;
+            
+            // Load cloud data when manually requested
             this.activities = data.activities || [];
             this.categories = data.categories || this.getDefaultCategories();
             this.appTitle = data.appTitle || 'My Personal Schedule';
@@ -1388,13 +1452,28 @@ Click Cancel if you have existing data on another device
             this.renderCurrentView();
             this.updateSyncStatus();
             
-            if (loadBtn) loadBtn.innerHTML = '✅ Downloaded';
-            setTimeout(() => {
-                if (loadBtn) loadBtn.innerHTML = '⬇️ Download';
-            }, 2000);
+            if (loadBtn) {
+                if (hasChanges) {
+                    loadBtn.innerHTML = '✅ Downloaded';
+                    setTimeout(() => {
+                        if (loadBtn) loadBtn.innerHTML = '⬇️ Download';
+                    }, 2000);
+                } else {
+                    loadBtn.innerHTML = '✅ Up to date';
+                    setTimeout(() => {
+                        if (loadBtn) loadBtn.innerHTML = '⬇️ Download';
+                    }, 2000);
+                }
+            }
             
-            const activityCount = this.activities.length;
-            alert(`✅ Downloaded ${activityCount} activities from cloud!`);
+            // Only show notification if there were actual changes
+            if (hasChanges) {
+                const activityCount = this.activities.length;
+                alert(`✅ Downloaded ${activityCount} activities from cloud!`);
+            } else {
+                // Optional: Show a subtle indication that data is already up to date
+                console.log('✅ Data is already up to date with cloud');
+            }
             
         } catch (error) {
             console.error('Failed to load from cloud:', error);
