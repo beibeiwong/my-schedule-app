@@ -710,6 +710,12 @@ h1.editing {
     line-height: 1.2;
 }
 
+.calendar-activity.multi-day {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: 1px solid #5a67d8;
+    font-weight: 600;
+}
+
 .calendar-activity.fitness { background: #28a745; }
 .calendar-activity.meals { background: #ffc107; color: #212529; }
 .calendar-activity.study { background: #17a2b8; }
