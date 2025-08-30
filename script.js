@@ -573,7 +573,34 @@ class ScheduleLogger {
     }
 
     formatDateTime(datetime) {
-        const date = new Date(datetime);
+        // Safe timezone handling for datetime-local inputs
+        let date;
+        
+        if (typeof datetime === 'string' && datetime.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/)) {
+            // This is a datetime-local format (YYYY-MM-DDTHH:MM)
+            // Create date object treating it as local time
+            const isoString = datetime + ':00.000'; // Add seconds and milliseconds
+            date = new Date(isoString);
+            
+            // Check if the date is valid and not being interpreted as UTC
+            if (isNaN(date.getTime())) {
+                // Fallback: manual parsing for safety
+                const [datePart, timePart] = datetime.split('T');
+                const [year, month, day] = datePart.split('-').map(Number);
+                const [hour, minute] = timePart.split(':').map(Number);
+                date = new Date(year, month - 1, day, hour, minute);
+            }
+        } else {
+            // Regular date string or Date object
+            date = new Date(datetime);
+        }
+        
+        // Validate the date
+        if (isNaN(date.getTime())) {
+            console.warn('Invalid date:', datetime);
+            return 'Invalid Date';
+        }
+        
         const options = {
             weekday: 'short',
             year: 'numeric',
@@ -659,8 +686,12 @@ class ScheduleLogger {
         const container = document.getElementById('activities-list');
         const filteredActivities = this.getFilteredActivities();
         
-        // Sort by datetime (newest first)
-        filteredActivities.sort((a, b) => new Date(b.datetime) - new Date(a.datetime));
+        // Sort by datetime (newest first) with safe parsing
+        filteredActivities.sort((a, b) => {
+            const dateA = this.parseActivityDate(a.datetime);
+            const dateB = this.parseActivityDate(b.datetime);
+            return dateB - dateA;
+        });
 
         if (filteredActivities.length === 0) {
             container.innerHTML = `
@@ -789,7 +820,27 @@ class ScheduleLogger {
         const filteredActivities = this.getFilteredActivities();
         
         return filteredActivities.filter(activity => {
-            const activityStartDate = new Date(activity.datetime);
+            // Safe date parsing for activity
+            let activityStartDate;
+            if (typeof activity.datetime === 'string' && activity.datetime.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/)) {
+                const isoString = activity.datetime + ':00.000';
+                activityStartDate = new Date(isoString);
+                
+                if (isNaN(activityStartDate.getTime())) {
+                    const [datePart, timePart] = activity.datetime.split('T');
+                    const [year, month, day] = datePart.split('-').map(Number);
+                    const [hour, minute] = timePart.split(':').map(Number);
+                    activityStartDate = new Date(year, month - 1, day, hour, minute);
+                }
+            } else {
+                activityStartDate = new Date(activity.datetime);
+            }
+            
+            // Validate the parsed date
+            if (isNaN(activityStartDate.getTime())) {
+                console.warn('Invalid activity date:', activity.datetime);
+                return false;
+            }
             
             // Check if activity spans multiple days
             if (activity.duration && activity.duration >= 1440) { // 1440 minutes = 1 day
@@ -808,16 +859,65 @@ class ScheduleLogger {
                 // Single day activity - check if it matches the date
                 return this.getDateString(activityStartDate) === dateStr;
             }
-        }).sort((a, b) => new Date(a.datetime) - new Date(b.datetime));
+        }).sort((a, b) => {
+            // Safe sorting with date validation
+            const dateA = this.parseActivityDate(a.datetime);
+            const dateB = this.parseActivityDate(b.datetime);
+            return dateA - dateB;
+        });
     }
 
     formatTime(datetime) {
-        const date = new Date(datetime);
+        // Safe timezone handling for datetime-local inputs
+        let date;
+        
+        if (typeof datetime === 'string' && datetime.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/)) {
+            // This is a datetime-local format (YYYY-MM-DDTHH:MM)
+            const isoString = datetime + ':00.000'; // Add seconds and milliseconds
+            date = new Date(isoString);
+            
+            // Check if the date is valid and not being interpreted as UTC
+            if (isNaN(date.getTime())) {
+                // Fallback: manual parsing for safety
+                const [datePart, timePart] = datetime.split('T');
+                const [year, month, day] = datePart.split('-').map(Number);
+                const [hour, minute] = timePart.split(':').map(Number);
+                date = new Date(year, month - 1, day, hour, minute);
+            }
+        } else {
+            // Regular date string or Date object
+            date = new Date(datetime);
+        }
+        
+        // Validate the date
+        if (isNaN(date.getTime())) {
+            console.warn('Invalid date:', datetime);
+            return 'Invalid Time';
+        }
+        
         return date.toLocaleTimeString('en-US', { 
             hour: '2-digit', 
             minute: '2-digit',
             hour12: true
         });
+    }
+
+    // Helper function for safe date parsing
+    parseActivityDate(datetime) {
+        if (typeof datetime === 'string' && datetime.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/)) {
+            const isoString = datetime + ':00.000';
+            const date = new Date(isoString);
+            
+            if (isNaN(date.getTime())) {
+                const [datePart, timePart] = datetime.split('T');
+                const [year, month, day] = datePart.split('-').map(Number);
+                const [hour, minute] = timePart.split(':').map(Number);
+                return new Date(year, month - 1, day, hour, minute);
+            }
+            return date;
+        } else {
+            return new Date(datetime);
+        }
     }
 
     getCategoryName(categoryId) {
