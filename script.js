@@ -202,23 +202,35 @@ class ScheduleLogger {
             const originalActivity = this.activities.find(a => a.id === this.editingActivityId);
             
             if (originalActivity && seriesActivities.length > 0) {
-                const startDate = new Date(updatedData.datetime);
+                // Parse the new datetime as HKT
+                const [datePart, timePart] = updatedData.datetime.split('T');
+                const [year, month, day] = datePart.split('-').map(Number);
+                const [hour, minute] = timePart.split(':').map(Number);
                 
                 seriesActivities.forEach((activity, index) => {
-                    const activityDate = new Date(startDate);
+                    // Start with the base HKT date/time
+                    const activityDate = new Date(year, month - 1, day, hour, minute);
                     
                     // Calculate new date based on original frequency
                     switch (originalActivity.recurringFrequency) {
                         case 'daily':
-                            activityDate.setDate(startDate.getDate() + index);
+                            activityDate.setDate(activityDate.getDate() + index);
                             break;
                         case 'weekly':
-                            activityDate.setDate(startDate.getDate() + (index * 7));
+                            activityDate.setDate(activityDate.getDate() + (index * 7));
                             break;
                         case 'monthly':
-                            activityDate.setMonth(startDate.getMonth() + index);
+                            activityDate.setMonth(activityDate.getMonth() + index);
                             break;
                     }
+                    
+                    // Format back to datetime-local format
+                    const year_new = activityDate.getFullYear();
+                    const month_new = String(activityDate.getMonth() + 1).padStart(2, '0');
+                    const day_new = String(activityDate.getDate()).padStart(2, '0');
+                    const hour_new = String(activityDate.getHours()).padStart(2, '0');
+                    const minute_new = String(activityDate.getMinutes()).padStart(2, '0');
+                    const datetimeLocal = `${year_new}-${month_new}-${day_new}T${hour_new}:${minute_new}`;
                     
                     // Update activity
                     const activityIndex = this.activities.findIndex(a => a.id === activity.id);
@@ -227,7 +239,7 @@ class ScheduleLogger {
                             ...this.activities[activityIndex],
                             title: updatedData.title,
                             category: updatedData.category,
-                            datetime: activityDate.toISOString(),
+                            datetime: datetimeLocal,
                             duration: updatedData.duration,
                             notes: updatedData.notes
                         };
@@ -271,14 +283,11 @@ class ScheduleLogger {
     createRecurringActivities(baseActivity, frequency, count, recurringId) {
         // Parse the base datetime as HKT
         const baseDateTime = baseActivity.datetime;
-        const baseDate = new Date(baseDateTime);
+        const [datePart, timePart] = baseDateTime.split('T');
+        const [year, month, day] = datePart.split('-').map(Number);
+        const [hour, minute] = timePart.split(':').map(Number);
         
         for (let i = 0; i < count; i++) {
-            // Create new date in HKT for each occurrence
-            const [datePart, timePart] = baseDateTime.split('T');
-            const [year, month, day] = datePart.split('-').map(Number);
-            const [hour, minute] = timePart.split(':').map(Number);
-            
             // Start with the base HKT date/time
             const hktDate = new Date(year, month - 1, day, hour, minute);
             
@@ -295,13 +304,19 @@ class ScheduleLogger {
                     break;
             }
             
-            // Convert to UTC for storage
-            const utcDate = new Date(hktDate.getTime() - (8 * 60 * 60 * 1000));
+            // Format back to datetime-local format for storage
+            const year_new = hktDate.getFullYear();
+            const month_new = String(hktDate.getMonth() + 1).padStart(2, '0');
+            const day_new = String(hktDate.getDate()).padStart(2, '0');
+            const hour_new = String(hktDate.getHours()).padStart(2, '0');
+            const minute_new = String(hktDate.getMinutes()).padStart(2, '0');
+            
+            const datetimeLocal = `${year_new}-${month_new}-${day_new}T${hour_new}:${minute_new}`;
             
             const activity = {
                 ...baseActivity,
                 id: Date.now() + i,
-                datetime: utcDate.toISOString(),
+                datetime: datetimeLocal,
                 isRecurring: true,
                 recurringId: recurringId,
                 recurringIndex: i + 1,
@@ -348,21 +363,25 @@ class ScheduleLogger {
             return;
         }
         
-        const startDate = new Date(datetime);
+        // Parse datetime as HKT
+        const [datePart, timePart] = datetime.split('T');
+        const [year, month, day] = datePart.split('-').map(Number);
+        const [hour, minute] = timePart.split(':').map(Number);
+        
         const dates = [];
         
         for (let i = 0; i < Math.min(count, 5); i++) {
-            const date = new Date(startDate);
+            const date = new Date(year, month - 1, day, hour, minute);
             
             switch (frequency) {
                 case 'daily':
-                    date.setDate(startDate.getDate() + i);
+                    date.setDate(date.getDate() + i);
                     break;
                 case 'weekly':
-                    date.setDate(startDate.getDate() + (i * 7));
+                    date.setDate(date.getDate() + (i * 7));
                     break;
                 case 'monthly':
-                    date.setMonth(startDate.getMonth() + i);
+                    date.setMonth(date.getMonth() + i);
                     break;
             }
             
@@ -408,14 +427,19 @@ class ScheduleLogger {
         document.getElementById('activity-title').value = activity.title;
         document.getElementById('activity-category').value = activity.category;
         
-        // Convert ISO datetime back to datetime-local format for the input
-        const date = new Date(activity.datetime);
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        const hours = String(date.getHours()).padStart(2, '0');
-        const minutes = String(date.getMinutes()).padStart(2, '0');
-        document.getElementById('activity-datetime').value = `${year}-${month}-${day}T${hours}:${minutes}`;
+        // Set datetime value - if it's already in datetime-local format, use directly
+        if (typeof activity.datetime === 'string' && activity.datetime.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/)) {
+            document.getElementById('activity-datetime').value = activity.datetime;
+        } else {
+            // Convert from other formats to datetime-local
+            const date = this.parseActivityDate(activity.datetime);
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            document.getElementById('activity-datetime').value = `${year}-${month}-${day}T${hours}:${minutes}`;
+        }
         
         // Set duration
         if (activity.duration) {
@@ -752,8 +776,7 @@ class ScheduleLogger {
             month: 'short',
             day: 'numeric',
             hour: '2-digit',
-            minute: '2-digit',
-            timeZone: 'Asia/Hong_Kong'
+            minute: '2-digit'
         });
     }
 
@@ -1015,34 +1038,30 @@ class ScheduleLogger {
         return date.toLocaleTimeString('en-US', { 
             hour: '2-digit', 
             minute: '2-digit',
-            hour12: true,
-            timeZone: 'Asia/Hong_Kong'
+            hour12: true
         });
     }
 
-    // Normalize datetime-local input to Hong Kong HKT timezone
+    // Normalize datetime-local input - treat as HKT directly
     normalizeDateTime(datetimeLocal) {
         if (typeof datetimeLocal === 'string' && datetimeLocal.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/)) {
-            // Parse as Hong Kong time (HKT = UTC+8)
-            const [datePart, timePart] = datetimeLocal.split('T');
-            const [year, month, day] = datePart.split('-').map(Number);
-            const [hour, minute] = timePart.split(':').map(Number);
-            
-            // Create date in HKT (UTC+8)
-            const hktDate = new Date(year, month - 1, day, hour, minute);
-            
-            // Convert to UTC by subtracting 8 hours, then return as ISO string
-            const utcDate = new Date(hktDate.getTime() - (8 * 60 * 60 * 1000));
-            return utcDate.toISOString();
+            // Simply return the datetime-local string as HKT time
+            return datetimeLocal;
         }
         return datetimeLocal;
     }
 
-    // Helper function for safe date parsing with HKT timezone handling
+    // Helper function for safe date parsing - treat stored datetime as HKT
     parseActivityDate(datetime) {
-        const date = new Date(datetime);
-        // Convert UTC to HKT by adding 8 hours for display
-        return new Date(date.getTime() + (8 * 60 * 60 * 1000));
+        if (typeof datetime === 'string' && datetime.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/)) {
+            // Parse datetime-local format as HKT
+            const [datePart, timePart] = datetime.split('T');
+            const [year, month, day] = datePart.split('-').map(Number);
+            const [hour, minute] = timePart.split(':').map(Number);
+            return new Date(year, month - 1, day, hour, minute);
+        }
+        // Fallback for ISO strings - treat as HKT
+        return new Date(datetime);
     }
 
     getCategoryName(categoryId) {
