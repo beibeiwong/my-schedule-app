@@ -318,6 +318,24 @@ h1.editing {
     min-height: 80px;
 }
 
+/* Duration input styling */
+.duration-input {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.duration-input input {
+    flex: 2;
+    margin-bottom: 0;
+}
+
+.duration-input select {
+    flex: 1;
+    margin-bottom: 0;
+    min-width: 100px;
+}
+
 /* Recurring Activity Styles */
 .recurring-section {
     border: 2px solid #e1e8ed;
@@ -1081,6 +1099,16 @@ h1.editing {
     #activity-form textarea:focus {
         border-color: #667eea;
         box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+    
+    .duration-input {
+        flex-direction: column;
+        gap: 12px;
+    }
+    
+    .duration-input input,
+    .duration-input select {
+        width: 100%;
     }
     
     /* Mobile Category Management */

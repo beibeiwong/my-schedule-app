@@ -152,7 +152,7 @@ class ScheduleLogger {
             title: document.getElementById('activity-title').value,
             category: document.getElementById('activity-category').value,
             datetime: document.getElementById('activity-datetime').value,
-            duration: document.getElementById('activity-duration').value || null,
+            duration: this.calculateDurationInMinutes(),
             notes: document.getElementById('activity-notes').value || '',
             createdAt: new Date().toISOString()
         };
@@ -177,6 +177,7 @@ class ScheduleLogger {
         // Close modal and reset form
         document.getElementById('activity-modal').style.display = 'none';
         form.reset();
+        document.getElementById('duration-unit').value = 'minutes'; // Reset to default
         document.getElementById('recurring-options').style.display = 'none';
     }
 
@@ -584,15 +585,45 @@ class ScheduleLogger {
         return date.toLocaleDateString('en-US', options);
     }
 
+    calculateDurationInMinutes() {
+        const durationValue = document.getElementById('activity-duration').value;
+        const durationUnit = document.getElementById('duration-unit').value;
+        
+        if (!durationValue) return null;
+        
+        const value = parseInt(durationValue);
+        
+        switch (durationUnit) {
+            case 'hours':
+                return value * 60;
+            case 'days':
+                return value * 24 * 60;
+            case 'minutes':
+            default:
+                return value;
+        }
+    }
+
     formatDuration(minutes) {
         if (!minutes) return '';
-        const hours = Math.floor(minutes / 60);
+        
+        const days = Math.floor(minutes / (24 * 60));
+        const hours = Math.floor((minutes % (24 * 60)) / 60);
         const mins = minutes % 60;
         
-        if (hours > 0) {
-            return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
+        let result = [];
+        
+        if (days > 0) {
+            result.push(`${days}d`);
         }
-        return `${mins}m`;
+        if (hours > 0) {
+            result.push(`${hours}h`);
+        }
+        if (mins > 0 || result.length === 0) {
+            result.push(`${mins}m`);
+        }
+        
+        return result.join(' ');
     }
 
     getFilteredActivities() {
@@ -809,6 +840,7 @@ class ScheduleLogger {
         if (this.holidays[year]) return;
         
         try {
+            console.log(`🌐 Fetching Hong Kong holidays for ${year} from API...`);
             // Using a public holidays API for Hong Kong
             const response = await fetch(`https://date.nager.at/api/v3/PublicHolidays/${year}/HK`);
             
@@ -820,31 +852,54 @@ class ScheduleLogger {
             this.holidays[year] = holidays.map(holiday => ({
                 date: holiday.date,
                 name: holiday.name,
-                localName: holiday.localName
+                localName: holiday.localName || holiday.name
             }));
+            
+            console.log(`✅ Loaded ${this.holidays[year].length} holidays from API for ${year}`);
         } catch (error) {
+            console.warn(`⚠️ API failed for ${year}, using hardcoded holidays:`, error.message);
             // Fallback to hardcoded holidays if API fails
             this.holidays[year] = this.getHardcodedHolidays(year);
         }
     }
 
     getHardcodedHolidays(year) {
-        // Common Hong Kong holidays (dates may vary year to year)
-        const holidays = [
-            { date: `${year}-01-01`, name: "New Year's Day", localName: "元旦" },
-            { date: `${year}-04-04`, name: "Ching Ming Festival", localName: "清明節" },
-            { date: `${year}-04-29`, name: "Good Friday", localName: "耶穌受難節" },
-            { date: `${year}-05-01`, name: "Labour Day", localName: "勞動節" },
-            { date: `${year}-05-08`, name: "Buddha's Birthday", localName: "佛誕" },
-            { date: `${year}-06-22`, name: "Dragon Boat Festival", localName: "端午節" },
-            { date: `${year}-07-01`, name: "HKSAR Establishment Day", localName: "香港特別行政區成立紀念日" },
-            { date: `${year}-09-29`, name: "Mid-Autumn Festival", localName: "中秋節" },
-            { date: `${year}-10-01`, name: "National Day", localName: "國慶日" },
-            { date: `${year}-10-23`, name: "Chung Yeung Festival", localName: "重陽節" },
-            { date: `${year}-12-25`, name: "Christmas Day", localName: "聖誕節" },
-            { date: `${year}-12-26`, name: "Boxing Day", localName: "節禮日" }
-        ];
+        // Hong Kong holidays with correct dates for 2025
+        let holidays = [];
         
+        if (year === 2025) {
+            holidays = [
+                { date: "2025-01-01", name: "New Year's Day", localName: "元旦" },
+                { date: "2025-01-29", name: "Lunar New Year's Day", localName: "農曆新年初一" },
+                { date: "2025-01-30", name: "The second day of Lunar New Year", localName: "農曆新年初二" },
+                { date: "2025-01-31", name: "The third day of Lunar New Year", localName: "農曆新年初三" },
+                { date: "2025-04-04", name: "Ching Ming Festival", localName: "清明節" },
+                { date: "2025-04-18", name: "Good Friday", localName: "耶穌受難節" },
+                { date: "2025-04-21", name: "Easter Monday", localName: "復活節星期一" },
+                { date: "2025-05-01", name: "Labour Day", localName: "勞動節" },
+                { date: "2025-05-05", name: "Buddha's Birthday", localName: "佛誕" },
+                { date: "2025-05-29", name: "Dragon Boat Festival", localName: "端午節" },
+                { date: "2025-07-01", name: "HKSAR Establishment Day", localName: "香港特別行政區成立紀念日" },
+                { date: "2025-10-06", name: "Mid-Autumn Festival", localName: "中秋節" },
+                { date: "2025-10-01", name: "National Day", localName: "國慶日" },
+                { date: "2025-10-29", name: "Chung Yeung Festival", localName: "重陽節" },
+                { date: "2025-12-25", name: "Christmas Day", localName: "聖誕節" },
+                { date: "2025-12-26", name: "Boxing Day", localName: "節禮日" }
+            ];
+        } else {
+            // Generic holidays for other years
+            holidays = [
+                { date: `${year}-01-01`, name: "New Year's Day", localName: "元旦" },
+                { date: `${year}-04-04`, name: "Ching Ming Festival", localName: "清明節" },
+                { date: `${year}-05-01`, name: "Labour Day", localName: "勞動節" },
+                { date: `${year}-07-01`, name: "HKSAR Establishment Day", localName: "香港特別行政區成立紀念日" },
+                { date: `${year}-10-01`, name: "National Day", localName: "國慶日" },
+                { date: `${year}-12-25`, name: "Christmas Day", localName: "聖誕節" },
+                { date: `${year}-12-26`, name: "Boxing Day", localName: "節禮日" }
+            ];
+        }
+        
+        console.log(`📅 Loaded ${holidays.length} Hong Kong holidays for ${year}`);
         return holidays;
     }
 
@@ -915,7 +970,128 @@ class ScheduleLogger {
             syncBtn.innerHTML = '☁️ Setup Sync';
             syncBtn.onclick = () => this.showSyncSetup();
             headerActions.insertBefore(syncBtn, headerActions.firstChild);
+            
+            // Connect to existing gist button
+            const connectBtn = document.createElement('button');
+            connectBtn.id = 'connect-gist-btn';
+            connectBtn.className = 'btn-secondary';
+            connectBtn.innerHTML = '🔗 Connect Existing';
+            connectBtn.title = 'Connect to existing gist';
+            connectBtn.onclick = () => this.connectToExistingGist();
+            headerActions.insertBefore(connectBtn, headerActions.firstChild);
         }
+    }
+
+    async connectToExistingGist() {
+        const token = prompt('Enter your GitHub token:');
+        if (!token) return;
+        
+        const gistId = prompt(`Enter your Gist ID:
+
+You can find this by:
+1. Going to your other device
+2. Clicking the 🔍 debug button
+3. Copying the Gist ID
+
+Or visit gist.github.com and find "Schedule App Data"`);
+        
+        if (!gistId) return;
+        
+        // Validate token and gist
+        const isValid = await this.validateToken(token.trim());
+        if (!isValid) {
+            alert('❌ Invalid token!');
+            return;
+        }
+        
+        try {
+            // Test if gist exists and is accessible
+            const response = await fetch(`https://api.github.com/gists/${gistId.trim()}`, {
+                headers: {
+                    'Authorization': `token ${token.trim()}`
+                }
+            });
+            
+            if (!response.ok) {
+                alert('❌ Cannot access gist. Check the Gist ID and token permissions.');
+                return;
+            }
+            
+            // Save token and gist ID
+            this.syncToken = token.trim();
+            localStorage.setItem('syncToken', this.syncToken);
+            localStorage.setItem('gistId', gistId.trim());
+            this.syncEnabled = true;
+            
+            // Remove setup buttons and add sync buttons
+            document.getElementById('setup-sync-btn').remove();
+            document.getElementById('connect-gist-btn').remove();
+            this.addSyncButton();
+            
+            // Download data
+            await this.loadFromCloud();
+            
+        } catch (error) {
+            alert('❌ Failed to connect to gist: ' + error.message);
+        }
+    }
+
+    showDebugInfo() {
+        const info = {
+            syncEnabled: this.syncEnabled,
+            hasToken: !!this.syncToken,
+            gistId: localStorage.getItem('gistId'),
+            lastSync: this.lastSync,
+            activitiesCount: this.activities.length,
+            categoriesCount: this.categories.length,
+            holidaysLoaded: Object.keys(this.holidays).length
+        };
+        
+        console.log('🔍 Debug Info:', info);
+        console.log('🏮 Holidays:', this.holidays);
+        
+        let debugMsg = '🔍 Debug Info:\n\n';
+        debugMsg += `Sync Enabled: ${info.syncEnabled}\n`;
+        debugMsg += `Has Token: ${info.hasToken}\n`;
+        debugMsg += `Activities: ${info.activitiesCount}\n`;
+        debugMsg += `Categories: ${info.categoriesCount}\n`;
+        debugMsg += `Holidays Loaded: ${info.holidaysLoaded} years\n`;
+        debugMsg += `Last Sync: ${info.lastSync || 'Never'}\n\n`;
+        
+        if (info.gistId) {
+            debugMsg += `📋 GIST ID (copy this for other devices):\n${info.gistId}\n\n`;
+            debugMsg += `🔗 View your data:\nhttps://gist.github.com/${info.gistId}`;
+        } else {
+            debugMsg += 'No Gist ID - data not uploaded yet';
+        }
+        
+        alert(debugMsg);
+        
+        // Also copy gist ID to clipboard if available
+        if (info.gistId && navigator.clipboard) {
+            navigator.clipboard.writeText(info.gistId).then(() => {
+                console.log('Gist ID copied to clipboard');
+            });
+        }
+    }
+
+    async refreshHolidays() {
+        const currentYear = new Date().getFullYear();
+        
+        // Clear existing holidays
+        this.holidays = {};
+        localStorage.removeItem('hkHolidays');
+        
+        // Reload holidays
+        await this.loadHolidays();
+        
+        // Refresh calendar if in calendar view
+        if (this.currentView === 'calendar') {
+            this.renderCalendar();
+        }
+        
+        const holidayCount = Object.values(this.holidays).reduce((total, yearHolidays) => total + yearHolidays.length, 0);
+        alert(`🏮 Refreshed holidays!\n\nLoaded ${holidayCount} holidays for ${Object.keys(this.holidays).join(', ')}`);
     }
 
     addSyncButton() {
@@ -936,10 +1112,28 @@ class ScheduleLogger {
             loadBtn.innerHTML = '⬇️ Download';
             loadBtn.onclick = () => this.loadFromCloud();
             headerActions.insertBefore(loadBtn, headerActions.firstChild);
+            
+            // Debug button
+            const debugBtn = document.createElement('button');
+            debugBtn.id = 'debug-btn';
+            debugBtn.className = 'btn-secondary';
+            debugBtn.innerHTML = '🔍';
+            debugBtn.title = 'Debug sync info';
+            debugBtn.onclick = () => this.showDebugInfo();
+            headerActions.insertBefore(debugBtn, headerActions.firstChild);
+            
+            // Holiday refresh button (for debugging)
+            const holidayBtn = document.createElement('button');
+            holidayBtn.id = 'holiday-btn';
+            holidayBtn.className = 'btn-secondary';
+            holidayBtn.innerHTML = '🏮';
+            holidayBtn.title = 'Refresh holidays';
+            holidayBtn.onclick = () => this.refreshHolidays();
+            headerActions.insertBefore(holidayBtn, headerActions.firstChild);
         }
     }
 
-    showSyncSetup() {
+    async showSyncSetup() {
         const token = prompt(`To sync across devices, create a GitHub Personal Access Token:
 
 1. Go to github.com → Settings → Developer settings → Personal access tokens → Tokens (classic)
@@ -949,29 +1143,106 @@ class ScheduleLogger {
 Your data will be stored in a private GitHub Gist.`);
         
         if (token && token.trim()) {
+            // Test the token first
+            const isValid = await this.validateToken(token.trim());
+            if (!isValid) {
+                alert('❌ Invalid token! Please check:\n\n1. Token has "gist" permission\n2. Token is not expired\n3. Token is copied correctly');
+                return;
+            }
+            
             this.syncToken = token.trim();
             localStorage.setItem('syncToken', this.syncToken);
             this.syncEnabled = true;
+            
+            // Look for existing Schedule App gist
+            const existingGist = await this.findExistingGist();
             
             // Replace setup button with sync button
             document.getElementById('setup-sync-btn').remove();
             this.addSyncButton();
             
-            // Ask user what to do
-            const choice = confirm(`Sync setup complete! 
+            if (existingGist) {
+                // Found existing gist
+                localStorage.setItem('gistId', existingGist.id);
+                const choice = confirm(`✅ Found existing sync data! 
 
-Click OK to UPLOAD your current data to cloud
-Click Cancel to DOWNLOAD existing data from cloud
+Click OK to DOWNLOAD existing data (${existingGist.activityCount} activities)
+Click Cancel to UPLOAD your current data (${this.activities.length} activities)
+
+⚠️ Uploading will overwrite cloud data!`);
+                
+                if (choice) {
+                    // Download existing data
+                    await this.loadFromCloud();
+                } else {
+                    // Upload current data (overwrite)
+                    await this.syncData();
+                }
+            } else {
+                // No existing gist found
+                const choice = confirm(`✅ Token validated! 
+
+Click OK to UPLOAD your current data to cloud (${this.activities.length} activities)
+Click Cancel if you have existing data on another device
 
 (If this is your first device, click OK)`);
-            
-            if (choice) {
-                // Upload current data
-                this.syncData();
-            } else {
-                // Try to download existing data
-                this.loadFromCloud();
+                
+                if (choice) {
+                    // Upload current data
+                    await this.syncData();
+                } else {
+                    alert('💡 To connect to existing data:\n\n1. Go to your other device\n2. Click 🔍 debug button\n3. Copy the Gist ID\n4. Use "Connect to Existing Gist" option');
+                }
             }
+        }
+    }
+
+    async findExistingGist() {
+        try {
+            const response = await fetch('https://api.github.com/gists', {
+                headers: {
+                    'Authorization': `token ${this.syncToken}`
+                }
+            });
+            
+            if (!response.ok) return null;
+            
+            const gists = await response.json();
+            
+            // Look for Schedule App Data gist
+            for (const gist of gists) {
+                if (gist.description === 'Schedule App Data' && gist.files['schedule-data.json']) {
+                    // Get activity count from the gist
+                    try {
+                        const content = gist.files['schedule-data.json'].content;
+                        const data = JSON.parse(content);
+                        return {
+                            id: gist.id,
+                            activityCount: data.activities ? data.activities.length : 0
+                        };
+                    } catch (e) {
+                        continue;
+                    }
+                }
+            }
+            
+            return null;
+        } catch (error) {
+            console.error('Error finding existing gist:', error);
+            return null;
+        }
+    }
+
+    async validateToken(token) {
+        try {
+            const response = await fetch('https://api.github.com/user', {
+                headers: {
+                    'Authorization': `token ${token}`
+                }
+            });
+            return response.ok;
+        } catch (error) {
+            return false;
         }
     }
 
@@ -1009,12 +1280,30 @@ Click Cancel to DOWNLOAD existing data from cloud
                 if (syncBtn) syncBtn.innerHTML = '☁️ Upload';
             }, 2000);
             
+            // Show success message with gist URL
+            const gistUrl = `https://gist.github.com/${localStorage.getItem('gistId')}`;
+            console.log('✅ Upload successful! View at:', gistUrl);
+            alert(`✅ Uploaded ${this.activities.length} activities!\n\nView your data at:\n${gistUrl}`);
+            
         } catch (error) {
-            console.error('Sync failed:', error);
-            if (syncBtn) syncBtn.innerHTML = '❌ Sync Failed';
+            console.error('❌ Sync failed:', error);
+            if (syncBtn) syncBtn.innerHTML = '❌ Failed';
             setTimeout(() => {
-                if (syncBtn) syncBtn.innerHTML = '☁️ Sync';
+                if (syncBtn) syncBtn.innerHTML = '☁️ Upload';
             }, 3000);
+            
+            let errorMsg = '❌ Upload failed!\n\n';
+            if (error.message.includes('401')) {
+                errorMsg += 'Token expired or invalid. Please setup sync again.';
+            } else if (error.message.includes('403')) {
+                errorMsg += 'Token missing "gist" permission. Create new token.';
+            } else if (error.message.includes('network')) {
+                errorMsg += 'Network error. Check internet connection.';
+            } else {
+                errorMsg += `Error: ${error.message}\n\nCheck browser console (F12) for details.`;
+            }
+            
+            alert(errorMsg);
         }
     }
 

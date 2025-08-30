@@ -76,7 +76,14 @@
                         <!-- Categories will be dynamically generated -->
                     </select>
                     <input type="datetime-local" id="activity-datetime" required>
-                    <input type="number" id="activity-duration" placeholder="Duration (minutes)" min="1">
+                    <div class="duration-input">
+                        <input type="number" id="activity-duration" placeholder="Duration" min="1">
+                        <select id="duration-unit">
+                            <option value="minutes">Minutes</option>
+                            <option value="hours">Hours</option>
+                            <option value="days">Days</option>
+                        </select>
+                    </div>
 
                     <div class="recurring-section">
                         <label class="checkbox-label">
