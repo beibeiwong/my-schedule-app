@@ -826,7 +826,6 @@ class ScheduleLogger {
                                 ${multiDayIndicator}${activity.title}
                             </div>`;
                         }).join('')}
-                        `).join('')}
                         ${dayActivities.length > (holiday ? 2 : 3) ? `
                             <div class="activity-count">+${dayActivities.length - (holiday ? 2 : 3)}</div>
                         ` : ''}
