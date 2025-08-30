@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Create App Icons</title>
+</head>
+<body>
+    <canvas id="canvas192" width="192" height="192" style="border: 1px solid #ccc; margin: 10px;"></canvas>
+    <canvas id="canvas512" width="512" height="512" style="border: 1px solid #ccc; margin: 10px;"></canvas>
+    
+    <script>
+        // Create 192x192 icon
+        const canvas192 = document.getElementById('canvas192');
+        const ctx192 = canvas192.getContext('2d');
+        
+        // Background gradient
+        const gradient192 = ctx192.createLinearGradient(0, 0, 192, 192);
+        gradient192.addColorStop(0, '#667eea');
+        gradient192.addColorStop(1, '#764ba2');
+        
+        ctx192.fillStyle = gradient192;
+        ctx192.fillRect(0, 0, 192, 192);
+        
+        // Calendar icon
+        ctx192.fillStyle = 'white';
+        ctx192.fillRect(40, 60, 112, 92);
+        
+        // Calendar header
+        ctx192.fillStyle = '#495057';
+        ctx192.fillRect(40, 60, 112, 20);
+        
+        // Calendar rings
+        ctx192.fillStyle = '#495057';
+        ctx192.fillRect(65, 45, 8, 25);
+        ctx192.fillRect(119, 45, 8, 25);
+        
+        // Calendar grid
+        ctx192.strokeStyle = '#e9ecef';
+        ctx192.lineWidth = 1;
+        for (let i = 1; i < 6; i++) {
+            ctx192.beginPath();
+            ctx192.moveTo(40, 80 + i * 14);
+            ctx192.lineTo(152, 80 + i * 14);
+            ctx192.stroke();
+        }
+        for (let i = 1; i < 7; i++) {
+            ctx192.beginPath();
+            ctx192.moveTo(40 + i * 16, 80);
+            ctx192.lineTo(40 + i * 16, 152);
+            ctx192.stroke();
+        }
+        
+        // Highlight today
+        ctx192.fillStyle = '#667eea';
+        ctx192.fillRect(72, 108, 14, 12);
+        
+        // Create 512x512 icon (scaled version)
+        const canvas512 = document.getElementById('canvas512');
+        const ctx512 = canvas512.getContext('2d');
+        
+        // Background gradient
+        const gradient512 = ctx512.createLinearGradient(0, 0, 512, 512);
+        gradient512.addColorStop(0, '#667eea');
+        gradient512.addColorStop(1, '#764ba2');
+        
+        ctx512.fillStyle = gradient512;
+        ctx512.fillRect(0, 0, 512, 512);
+        
+        // Calendar icon (scaled)
+        ctx512.fillStyle = 'white';
+        ctx512.fillRect(106, 160, 300, 246);
+        
+        // Calendar header
+        ctx512.fillStyle = '#495057';
+        ctx512.fillRect(106, 160, 300, 54);
+        
+        // Calendar rings
+        ctx512.fillStyle = '#495057';
+        ctx512.fillRect(174, 120, 22, 67);
+        ctx512.fillRect(318, 120, 22, 67);
+        
+        // Calendar grid
+        ctx512.strokeStyle = '#e9ecef';
+        ctx512.lineWidth = 3;
+        for (let i = 1; i < 6; i++) {
+            ctx512.beginPath();
+            ctx512.moveTo(106, 214 + i * 37);
+            ctx512.lineTo(406, 214 + i * 37);
+            ctx512.stroke();
+        }
+        for (let i = 1; i < 7; i++) {
+            ctx512.beginPath();
+            ctx512.moveTo(106 + i * 43, 214);
+            ctx512.lineTo(106 + i * 43, 406);
+            ctx512.stroke();
+        }
+        
+        // Highlight today
+        ctx512.fillStyle = '#667eea';
+        ctx512.fillRect(192, 288, 37, 32);
+        
+        // Download function
+        function downloadIcon(canvas, filename) {
+            const link = document.createElement('a');
+            link.download = filename;
+            link.href = canvas.toDataURL();
+            link.click();
+        }
+        
+        // Auto-download icons
+        setTimeout(() => {
+            downloadIcon(canvas192, 'icon-192.png');
+            setTimeout(() => {
+                downloadIcon(canvas512, 'icon-512.png');
+            }, 1000);
+        }, 1000);
+    </script>
+    
+    <p>Icons will be automatically downloaded. If not, right-click on each canvas and "Save image as..."</p>
+    <button onclick="downloadIcon(document.getElementById('canvas192'), 'icon-192.png')">Download 192x192</button>
+    <button onclick="downloadIcon(document.getElementById('canvas512'), 'icon-512.png')">Download 512x512</button>
+</body>
+</html>
