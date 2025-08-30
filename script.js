@@ -573,25 +573,7 @@ class ScheduleLogger {
     }
 
     formatDateTime(datetime) {
-        // Handle datetime-local input format properly
-        let date;
-        if (typeof datetime === 'string' && datetime.includes('T') && !datetime.includes('Z') && !datetime.includes('+')) {
-            // Parse datetime-local format as local time explicitly
-            const parts = datetime.split('T');
-            const dateParts = parts[0].split('-');
-            const timeParts = parts[1].split(':');
-            
-            date = new Date(
-                parseInt(dateParts[0]), // year
-                parseInt(dateParts[1]) - 1, // month (0-indexed)
-                parseInt(dateParts[2]), // day
-                parseInt(timeParts[0]), // hour
-                parseInt(timeParts[1]) // minute
-            );
-        } else {
-            date = new Date(datetime);
-        }
-        
+        const date = new Date(datetime);
         const options = {
             weekday: 'short',
             year: 'numeric',
@@ -678,42 +660,7 @@ class ScheduleLogger {
         const filteredActivities = this.getFilteredActivities();
         
         // Sort by datetime (newest first)
-        filteredActivities.sort((a, b) => {
-            let dateA, dateB;
-            if (typeof a.datetime === 'string' && a.datetime.includes('T') && !a.datetime.includes('Z') && !a.datetime.includes('+')) {
-                const parts = a.datetime.split('T');
-                const dateParts = parts[0].split('-');
-                const timeParts = parts[1].split(':');
-                
-                dateA = new Date(
-                    parseInt(dateParts[0]),
-                    parseInt(dateParts[1]) - 1,
-                    parseInt(dateParts[2]),
-                    parseInt(timeParts[0]),
-                    parseInt(timeParts[1])
-                );
-            } else {
-                dateA = new Date(a.datetime);
-            }
-            
-            if (typeof b.datetime === 'string' && b.datetime.includes('T') && !b.datetime.includes('Z') && !b.datetime.includes('+')) {
-                const parts = b.datetime.split('T');
-                const dateParts = parts[0].split('-');
-                const timeParts = parts[1].split(':');
-                
-                dateB = new Date(
-                    parseInt(dateParts[0]),
-                    parseInt(dateParts[1]) - 1,
-                    parseInt(dateParts[2]),
-                    parseInt(timeParts[0]),
-                    parseInt(timeParts[1])
-                );
-            } else {
-                dateB = new Date(b.datetime);
-            }
-            
-            return dateB - dateA;
-        });
+        filteredActivities.sort((a, b) => new Date(b.datetime) - new Date(a.datetime));
 
         if (filteredActivities.length === 0) {
             container.innerHTML = `
@@ -842,28 +789,11 @@ class ScheduleLogger {
         const filteredActivities = this.getFilteredActivities();
         
         return filteredActivities.filter(activity => {
-            // Parse activity start date properly
-            let activityStartDate;
-            if (typeof activity.datetime === 'string' && activity.datetime.includes('T') && !activity.datetime.includes('Z') && !activity.datetime.includes('+')) {
-                const parts = activity.datetime.split('T');
-                const dateParts = parts[0].split('-');
-                const timeParts = parts[1].split(':');
-                
-                activityStartDate = new Date(
-                    parseInt(dateParts[0]), // year
-                    parseInt(dateParts[1]) - 1, // month (0-indexed)
-                    parseInt(dateParts[2]), // day
-                    parseInt(timeParts[0]), // hour
-                    parseInt(timeParts[1]) // minute
-                );
-            } else {
-                activityStartDate = new Date(activity.datetime);
-            }
+            const activityStartDate = new Date(activity.datetime);
             
             // Check if activity spans multiple days
             if (activity.duration && activity.duration >= 1440) { // 1440 minutes = 1 day
                 const durationInDays = Math.ceil(activity.duration / 1440);
-                const activityStartDateStr = this.getDateString(activityStartDate);
                 
                 // Check if the current date falls within the activity's date range
                 for (let i = 0; i < durationInDays; i++) {
@@ -878,64 +808,11 @@ class ScheduleLogger {
                 // Single day activity - check if it matches the date
                 return this.getDateString(activityStartDate) === dateStr;
             }
-        }).sort((a, b) => {
-            let dateA, dateB;
-            if (typeof a.datetime === 'string' && a.datetime.includes('T') && !a.datetime.includes('Z') && !a.datetime.includes('+')) {
-                const parts = a.datetime.split('T');
-                const dateParts = parts[0].split('-');
-                const timeParts = parts[1].split(':');
-                
-                dateA = new Date(
-                    parseInt(dateParts[0]),
-                    parseInt(dateParts[1]) - 1,
-                    parseInt(dateParts[2]),
-                    parseInt(timeParts[0]),
-                    parseInt(timeParts[1])
-                );
-            } else {
-                dateA = new Date(a.datetime);
-            }
-            
-            if (typeof b.datetime === 'string' && b.datetime.includes('T') && !b.datetime.includes('Z') && !b.datetime.includes('+')) {
-                const parts = b.datetime.split('T');
-                const dateParts = parts[0].split('-');
-                const timeParts = parts[1].split(':');
-                
-                dateB = new Date(
-                    parseInt(dateParts[0]),
-                    parseInt(dateParts[1]) - 1,
-                    parseInt(dateParts[2]),
-                    parseInt(timeParts[0]),
-                    parseInt(timeParts[1])
-                );
-            } else {
-                dateB = new Date(b.datetime);
-            }
-            
-            return dateA - dateB;
-        });
+        }).sort((a, b) => new Date(a.datetime) - new Date(b.datetime));
     }
 
     formatTime(datetime) {
-        // Handle datetime-local input format properly
-        let date;
-        if (typeof datetime === 'string' && datetime.includes('T') && !datetime.includes('Z') && !datetime.includes('+')) {
-            // Parse datetime-local format as local time explicitly
-            const parts = datetime.split('T');
-            const dateParts = parts[0].split('-');
-            const timeParts = parts[1].split(':');
-            
-            date = new Date(
-                parseInt(dateParts[0]), // year
-                parseInt(dateParts[1]) - 1, // month (0-indexed)
-                parseInt(dateParts[2]), // day
-                parseInt(timeParts[0]), // hour
-                parseInt(timeParts[1]) // minute
-            );
-        } else {
-            date = new Date(datetime);
-        }
-        
+        const date = new Date(datetime);
         return date.toLocaleTimeString('en-US', { 
             hour: '2-digit', 
             minute: '2-digit',
