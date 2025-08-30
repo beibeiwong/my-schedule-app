@@ -53,14 +53,12 @@ class ScheduleLogger {
         });
 
         closeBtn.addEventListener('click', () => {
-            modal.style.display = 'none';
-            form.reset();
+            this.closeModal();
         });
 
         window.addEventListener('click', (e) => {
             if (e.target === modal) {
-                modal.style.display = 'none';
-                form.reset();
+                this.closeModal();
             }
         });
 
@@ -157,7 +155,10 @@ class ScheduleLogger {
             createdAt: new Date().toISOString()
         };
 
-        if (isRecurring) {
+        // Check if we're editing an existing activity
+        if (this.editingActivityId) {
+            this.updateActivity(baseActivity);
+        } else if (isRecurring) {
             const frequency = document.getElementById('recurring-frequency').value;
             const count = parseInt(document.getElementById('recurring-count').value) || 1;
             const recurringId = Date.now();
@@ -173,12 +174,80 @@ class ScheduleLogger {
 
         this.saveToStorage();
         this.renderCurrentView();
+        this.closeModal();
+    }
+
+    updateActivity(updatedData) {
+        if (this.editingSeriesId) {
+            // Update entire series
+            const seriesActivities = this.activities.filter(activity => activity.recurringId === this.editingSeriesId);
+            const originalActivity = this.activities.find(a => a.id === this.editingActivityId);
+            
+            if (originalActivity && seriesActivities.length > 0) {
+                const startDate = new Date(updatedData.datetime);
+                
+                seriesActivities.forEach((activity, index) => {
+                    const activityDate = new Date(startDate);
+                    
+                    // Calculate new date based on original frequency
+                    switch (originalActivity.recurringFrequency) {
+                        case 'daily':
+                            activityDate.setDate(startDate.getDate() + index);
+                            break;
+                        case 'weekly':
+                            activityDate.setDate(startDate.getDate() + (index * 7));
+                            break;
+                        case 'monthly':
+                            activityDate.setMonth(startDate.getMonth() + index);
+                            break;
+                    }
+                    
+                    // Update activity
+                    const activityIndex = this.activities.findIndex(a => a.id === activity.id);
+                    if (activityIndex !== -1) {
+                        this.activities[activityIndex] = {
+                            ...this.activities[activityIndex],
+                            title: updatedData.title,
+                            category: updatedData.category,
+                            datetime: activityDate.toISOString(),
+                            duration: updatedData.duration,
+                            notes: updatedData.notes
+                        };
+                    }
+                });
+            }
+        } else {
+            // Update single activity
+            const activityIndex = this.activities.findIndex(a => a.id === this.editingActivityId);
+            if (activityIndex !== -1) {
+                this.activities[activityIndex] = {
+                    ...this.activities[activityIndex],
+                    ...updatedData
+                };
+            }
+        }
+        
+        // Clear editing state
+        this.editingActivityId = null;
+        this.editingSeriesId = null;
+    }
+
+    closeModal() {
+        const form = document.getElementById('activity-form');
         
         // Close modal and reset form
         document.getElementById('activity-modal').style.display = 'none';
         form.reset();
-        document.getElementById('duration-unit').value = 'minutes'; // Reset to default
+        document.getElementById('duration-unit').value = 'minutes';
         document.getElementById('recurring-options').style.display = 'none';
+        
+        // Reset modal title and button text
+        document.querySelector('#activity-modal h2').textContent = 'Add New Activity';
+        document.querySelector('#activity-form button[type="submit"]').textContent = 'Save Activity';
+        
+        // Clear editing state
+        this.editingActivityId = null;
+        this.editingSeriesId = null;
     }
 
     createRecurringActivities(baseActivity, frequency, count, recurringId) {
@@ -298,6 +367,74 @@ class ScheduleLogger {
             this.activities = this.activities.filter(activity => activity.recurringId !== recurringId);
             this.saveToStorage();
             this.renderCurrentView();
+        }
+    }
+
+    editActivity(id) {
+        const activity = this.activities.find(a => a.id === id);
+        if (!activity) return;
+
+        // Populate the form with existing data
+        document.getElementById('activity-title').value = activity.title;
+        document.getElementById('activity-category').value = activity.category;
+        
+        // Convert ISO datetime back to datetime-local format for the input
+        const date = new Date(activity.datetime);
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        document.getElementById('activity-datetime').value = `${year}-${month}-${day}T${hours}:${minutes}`;
+        
+        // Set duration
+        if (activity.duration) {
+            if (activity.duration >= 1440) {
+                document.getElementById('activity-duration').value = Math.round(activity.duration / 1440);
+                document.getElementById('duration-unit').value = 'days';
+            } else if (activity.duration >= 60) {
+                document.getElementById('activity-duration').value = Math.round(activity.duration / 60);
+                document.getElementById('duration-unit').value = 'hours';
+            } else {
+                document.getElementById('activity-duration').value = activity.duration;
+                document.getElementById('duration-unit').value = 'minutes';
+            }
+        } else {
+            document.getElementById('activity-duration').value = '';
+        }
+        
+        document.getElementById('activity-notes').value = activity.notes || '';
+        
+        // Hide recurring options for individual edits
+        document.getElementById('is-recurring').checked = false;
+        document.getElementById('recurring-options').style.display = 'none';
+        
+        // Store the ID for updating
+        this.editingActivityId = id;
+        
+        // Change form title and button text
+        document.querySelector('#activity-modal h2').textContent = 'Edit Activity';
+        document.querySelector('#activity-form button[type="submit"]').textContent = 'Update Activity';
+        
+        // Show modal
+        document.getElementById('activity-modal').style.display = 'block';
+    }
+
+    editRecurringSeries(recurringId) {
+        const seriesActivities = this.activities.filter(activity => activity.recurringId === recurringId);
+        if (seriesActivities.length === 0) return;
+
+        const firstActivity = seriesActivities[0];
+        const choice = confirm(`Edit entire series of ${seriesActivities.length} activities?\n\nOK = Edit entire series\nCancel = Edit just this occurrence`);
+        
+        if (choice) {
+            // Edit entire series
+            this.editActivity(firstActivity.id);
+            this.editingSeriesId = recurringId;
+            document.querySelector('#activity-modal h2').textContent = `Edit Series (${seriesActivities.length} activities)`;
+        } else {
+            // Edit just this occurrence
+            this.editActivity(firstActivity.id);
         }
     }
 
@@ -681,7 +818,7 @@ class ScheduleLogger {
         }
 
         container.innerHTML = filteredActivities.map(activity => `
-            <div class="activity-card ${activity.isRecurring ? 'recurring' : ''}">
+            <div class="activity-card ${activity.isRecurring ? 'recurring' : ''}" onclick="scheduleLogger.editActivity(${activity.id})">
                 <div class="activity-header">
                     <div class="activity-title">
                         ${activity.title}
@@ -704,8 +841,14 @@ class ScheduleLogger {
                         💭 ${activity.notes}
                     </div>
                 ` : ''}
-                <div class="activity-actions">
+                <div class="activity-actions" onclick="event.stopPropagation()">
+                    <button class="btn-small btn-edit" onclick="scheduleLogger.editActivity(${activity.id})">
+                        Edit
+                    </button>
                     ${activity.isRecurring ? `
+                        <button class="btn-small btn-edit-series" onclick="scheduleLogger.editRecurringSeries(${activity.recurringId})">
+                            Edit Series
+                        </button>
                         <button class="btn-small" onclick="scheduleLogger.deleteRecurringSeries(${activity.recurringId})">
                             Delete Series
                         </button>

@@ -171,6 +171,7 @@ h1.editing {
     box-shadow: 0 2px 8px rgba(0,0,0,0.1);
     border-left: 4px solid #667eea;
     transition: transform 0.2s, box-shadow 0.2s;
+    cursor: pointer;
 }
 
 .activity-card:hover {
@@ -251,6 +252,26 @@ h1.editing {
 
 .btn-delete:hover {
     background: #dc3545;
+    color: white;
+}
+
+.btn-edit {
+    color: #007bff;
+    border-color: #007bff;
+}
+
+.btn-edit:hover {
+    background: #007bff;
+    color: white;
+}
+
+.btn-edit-series {
+    color: #28a745;
+    border-color: #28a745;
+}
+
+.btn-edit-series:hover {
+    background: #28a745;
     color: white;
 }
 
