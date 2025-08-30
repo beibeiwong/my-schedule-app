@@ -762,7 +762,6 @@ class ScheduleLogger {
                 <div class="${dayClass}" data-date="${this.getDateString(date)}">
                     <div class="day-number">
                         ${date.getDate()}
-                        ${holiday ? '<span class="holiday-indicator">🏮</span>' : ''}
                     </div>
                     ${holiday ? `<div class="holiday-name" title="${holiday.localName}">${holiday.name}</div>` : ''}
                     <div class="day-activities">
@@ -1122,14 +1121,7 @@ Or visit gist.github.com and find "Schedule App Data"`);
             debugBtn.onclick = () => this.showDebugInfo();
             headerActions.insertBefore(debugBtn, headerActions.firstChild);
             
-            // Holiday refresh button (for debugging)
-            const holidayBtn = document.createElement('button');
-            holidayBtn.id = 'holiday-btn';
-            holidayBtn.className = 'btn-secondary';
-            holidayBtn.innerHTML = '🏮';
-            holidayBtn.title = 'Refresh holidays';
-            holidayBtn.onclick = () => this.refreshHolidays();
-            headerActions.insertBefore(holidayBtn, headerActions.firstChild);
+
         }
     }
 
