@@ -151,7 +151,7 @@ class ScheduleLogger {
         const baseActivity = {
             title: document.getElementById('activity-title').value,
             category: document.getElementById('activity-category').value,
-            datetime: document.getElementById('activity-datetime').value,
+            datetime: this.normalizeDateTime(document.getElementById('activity-datetime').value),
             duration: this.calculateDurationInMinutes(),
             notes: document.getElementById('activity-notes').value || '',
             createdAt: new Date().toISOString()
@@ -573,43 +573,20 @@ class ScheduleLogger {
     }
 
     formatDateTime(datetime) {
-        // Safe timezone handling for datetime-local inputs
-        let date;
+        const date = new Date(datetime);
         
-        if (typeof datetime === 'string' && datetime.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/)) {
-            // This is a datetime-local format (YYYY-MM-DDTHH:MM)
-            // Create date object treating it as local time
-            const isoString = datetime + ':00.000'; // Add seconds and milliseconds
-            date = new Date(isoString);
-            
-            // Check if the date is valid and not being interpreted as UTC
-            if (isNaN(date.getTime())) {
-                // Fallback: manual parsing for safety
-                const [datePart, timePart] = datetime.split('T');
-                const [year, month, day] = datePart.split('-').map(Number);
-                const [hour, minute] = timePart.split(':').map(Number);
-                date = new Date(year, month - 1, day, hour, minute);
-            }
-        } else {
-            // Regular date string or Date object
-            date = new Date(datetime);
-        }
-        
-        // Validate the date
         if (isNaN(date.getTime())) {
-            console.warn('Invalid date:', datetime);
             return 'Invalid Date';
         }
         
-        const options = {
+        return date.toLocaleDateString('en-US', {
             weekday: 'short',
             year: 'numeric',
             month: 'short',
             day: 'numeric',
             hour: '2-digit',
             minute: '2-digit'
-        };
-        return date.toLocaleDateString('en-US', options);
+        });
     }
 
     calculateDurationInMinutes() {
@@ -820,21 +797,8 @@ class ScheduleLogger {
         const filteredActivities = this.getFilteredActivities();
         
         return filteredActivities.filter(activity => {
-            // Safe date parsing for activity
-            let activityStartDate;
-            if (typeof activity.datetime === 'string' && activity.datetime.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/)) {
-                const isoString = activity.datetime + ':00.000';
-                activityStartDate = new Date(isoString);
-                
-                if (isNaN(activityStartDate.getTime())) {
-                    const [datePart, timePart] = activity.datetime.split('T');
-                    const [year, month, day] = datePart.split('-').map(Number);
-                    const [hour, minute] = timePart.split(':').map(Number);
-                    activityStartDate = new Date(year, month - 1, day, hour, minute);
-                }
-            } else {
-                activityStartDate = new Date(activity.datetime);
-            }
+            // Use helper function for consistent date parsing
+            const activityStartDate = this.parseActivityDate(activity.datetime);
             
             // Validate the parsed date
             if (isNaN(activityStartDate.getTime())) {
@@ -868,30 +832,9 @@ class ScheduleLogger {
     }
 
     formatTime(datetime) {
-        // Safe timezone handling for datetime-local inputs
-        let date;
+        const date = new Date(datetime);
         
-        if (typeof datetime === 'string' && datetime.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/)) {
-            // This is a datetime-local format (YYYY-MM-DDTHH:MM)
-            const isoString = datetime + ':00.000'; // Add seconds and milliseconds
-            date = new Date(isoString);
-            
-            // Check if the date is valid and not being interpreted as UTC
-            if (isNaN(date.getTime())) {
-                // Fallback: manual parsing for safety
-                const [datePart, timePart] = datetime.split('T');
-                const [year, month, day] = datePart.split('-').map(Number);
-                const [hour, minute] = timePart.split(':').map(Number);
-                date = new Date(year, month - 1, day, hour, minute);
-            }
-        } else {
-            // Regular date string or Date object
-            date = new Date(datetime);
-        }
-        
-        // Validate the date
         if (isNaN(date.getTime())) {
-            console.warn('Invalid date:', datetime);
             return 'Invalid Time';
         }
         
@@ -902,22 +845,27 @@ class ScheduleLogger {
         });
     }
 
-    // Helper function for safe date parsing
-    parseActivityDate(datetime) {
-        if (typeof datetime === 'string' && datetime.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/)) {
-            const isoString = datetime + ':00.000';
-            const date = new Date(isoString);
+    // Normalize datetime-local input to ensure consistent timezone handling
+    normalizeDateTime(datetimeLocal) {
+        if (typeof datetimeLocal === 'string' && datetimeLocal.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/)) {
+            // Convert datetime-local to ISO string with local timezone offset
+            const [datePart, timePart] = datetimeLocal.split('T');
+            const [year, month, day] = datePart.split('-').map(Number);
+            const [hour, minute] = timePart.split(':').map(Number);
             
-            if (isNaN(date.getTime())) {
-                const [datePart, timePart] = datetime.split('T');
-                const [year, month, day] = datePart.split('-').map(Number);
-                const [hour, minute] = timePart.split(':').map(Number);
-                return new Date(year, month - 1, day, hour, minute);
-            }
-            return date;
-        } else {
-            return new Date(datetime);
+            // Create date in local timezone
+            const localDate = new Date(year, month - 1, day, hour, minute);
+            
+            // Return as ISO string which preserves the timezone
+            return localDate.toISOString();
         }
+        return datetimeLocal;
+    }
+
+    // Helper function for safe date parsing with timezone handling
+    parseActivityDate(datetime) {
+        // Always parse as a regular Date - ISO strings should handle timezone correctly
+        return new Date(datetime);
     }
 
     getCategoryName(categoryId) {
