@@ -4,6 +4,7 @@ class ScheduleLogger {
         this.categories = JSON.parse(localStorage.getItem('scheduleCategories')) || this.getDefaultCategories();
         this.holidays = JSON.parse(localStorage.getItem('hkHolidays')) || {};
         this.appTitle = localStorage.getItem('appTitle') || 'My Personal Schedule';
+        this.currentTheme = localStorage.getItem('appTheme') || 'default';
         this.currentFilter = 'all';
         this.currentView = 'list';
         this.currentDate = new Date();
@@ -22,6 +23,7 @@ class ScheduleLogger {
         this.renderCategories();
         this.loadHolidays();
         this.setupCloudSync();
+        this.applyTheme(this.currentTheme);
         
         // Auto-load from cloud if sync is enabled
         if (this.syncEnabled) {
@@ -138,6 +140,22 @@ class ScheduleLogger {
             }
         });
 
+        // Theme management
+        document.getElementById('theme-selector-btn').addEventListener('click', () => {
+            this.openThemeModal();
+        });
+
+        document.getElementById('theme-close').addEventListener('click', () => {
+            document.getElementById('theme-modal').style.display = 'none';
+        });
+
+        window.addEventListener('click', (e) => {
+            const themeModal = document.getElementById('theme-modal');
+            if (e.target === themeModal) {
+                themeModal.style.display = 'none';
+            }
+        });
+
         // Title editing
         this.bindTitleEvents();
     }
@@ -251,27 +269,39 @@ class ScheduleLogger {
     }
 
     createRecurringActivities(baseActivity, frequency, count, recurringId) {
-        const startDate = new Date(baseActivity.datetime);
+        // Parse the base datetime as HKT
+        const baseDateTime = baseActivity.datetime;
+        const baseDate = new Date(baseDateTime);
         
         for (let i = 0; i < count; i++) {
-            const activityDate = new Date(startDate);
+            // Create new date in HKT for each occurrence
+            const [datePart, timePart] = baseDateTime.split('T');
+            const [year, month, day] = datePart.split('-').map(Number);
+            const [hour, minute] = timePart.split(':').map(Number);
             
+            // Start with the base HKT date/time
+            const hktDate = new Date(year, month - 1, day, hour, minute);
+            
+            // Add the appropriate interval
             switch (frequency) {
                 case 'daily':
-                    activityDate.setDate(startDate.getDate() + i);
+                    hktDate.setDate(hktDate.getDate() + i);
                     break;
                 case 'weekly':
-                    activityDate.setDate(startDate.getDate() + (i * 7));
+                    hktDate.setDate(hktDate.getDate() + (i * 7));
                     break;
                 case 'monthly':
-                    activityDate.setMonth(startDate.getMonth() + i);
+                    hktDate.setMonth(hktDate.getMonth() + i);
                     break;
             }
+            
+            // Convert to UTC for storage
+            const utcDate = new Date(hktDate.getTime() - (8 * 60 * 60 * 1000));
             
             const activity = {
                 ...baseActivity,
                 id: Date.now() + i,
-                datetime: activityDate.toISOString().slice(0, 16),
+                datetime: utcDate.toISOString(),
                 isRecurring: true,
                 recurringId: recurringId,
                 recurringIndex: i + 1,
@@ -710,7 +740,7 @@ class ScheduleLogger {
     }
 
     formatDateTime(datetime) {
-        const date = new Date(datetime);
+        const date = this.parseActivityDate(datetime);
         
         if (isNaN(date.getTime())) {
             return 'Invalid Date';
@@ -722,7 +752,8 @@ class ScheduleLogger {
             month: 'short',
             day: 'numeric',
             hour: '2-digit',
-            minute: '2-digit'
+            minute: '2-digit',
+            timeZone: 'Asia/Hong_Kong'
         });
     }
 
@@ -975,7 +1006,7 @@ class ScheduleLogger {
     }
 
     formatTime(datetime) {
-        const date = new Date(datetime);
+        const date = this.parseActivityDate(datetime);
         
         if (isNaN(date.getTime())) {
             return 'Invalid Time';
@@ -984,31 +1015,34 @@ class ScheduleLogger {
         return date.toLocaleTimeString('en-US', { 
             hour: '2-digit', 
             minute: '2-digit',
-            hour12: true
+            hour12: true,
+            timeZone: 'Asia/Hong_Kong'
         });
     }
 
-    // Normalize datetime-local input to ensure consistent timezone handling
+    // Normalize datetime-local input to Hong Kong HKT timezone
     normalizeDateTime(datetimeLocal) {
         if (typeof datetimeLocal === 'string' && datetimeLocal.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/)) {
-            // Convert datetime-local to ISO string with local timezone offset
+            // Parse as Hong Kong time (HKT = UTC+8)
             const [datePart, timePart] = datetimeLocal.split('T');
             const [year, month, day] = datePart.split('-').map(Number);
             const [hour, minute] = timePart.split(':').map(Number);
             
-            // Create date in local timezone
-            const localDate = new Date(year, month - 1, day, hour, minute);
+            // Create date in HKT (UTC+8)
+            const hktDate = new Date(year, month - 1, day, hour, minute);
             
-            // Return as ISO string which preserves the timezone
-            return localDate.toISOString();
+            // Convert to UTC by subtracting 8 hours, then return as ISO string
+            const utcDate = new Date(hktDate.getTime() - (8 * 60 * 60 * 1000));
+            return utcDate.toISOString();
         }
         return datetimeLocal;
     }
 
-    // Helper function for safe date parsing with timezone handling
+    // Helper function for safe date parsing with HKT timezone handling
     parseActivityDate(datetime) {
-        // Always parse as a regular Date - ISO strings should handle timezone correctly
-        return new Date(datetime);
+        const date = new Date(datetime);
+        // Convert UTC to HKT by adding 8 hours for display
+        return new Date(date.getTime() + (8 * 60 * 60 * 1000));
     }
 
     getCategoryName(categoryId) {
@@ -1644,6 +1678,51 @@ Click Cancel if you have existing data on another device
             }, 3000);
             alert('❌ Failed to download from cloud. Check your internet connection.');
         }
+    }
+
+    // Theme Management Methods
+    openThemeModal() {
+        document.getElementById('theme-modal').style.display = 'block';
+        this.renderThemeOptions();
+    }
+
+    renderThemeOptions() {
+        const themeOptions = document.querySelectorAll('.theme-option');
+        themeOptions.forEach(option => {
+            option.classList.remove('active');
+            if (option.dataset.theme === this.currentTheme) {
+                option.classList.add('active');
+            }
+            
+            option.addEventListener('click', () => {
+                this.selectTheme(option.dataset.theme);
+            });
+        });
+    }
+
+    selectTheme(themeName) {
+        this.currentTheme = themeName;
+        localStorage.setItem('appTheme', themeName);
+        this.applyTheme(themeName);
+        
+        // Update active state
+        document.querySelectorAll('.theme-option').forEach(option => {
+            option.classList.remove('active');
+        });
+        document.querySelector(`[data-theme="${themeName}"]`).classList.add('active');
+        
+        // Close modal after a brief delay
+        setTimeout(() => {
+            document.getElementById('theme-modal').style.display = 'none';
+        }, 500);
+    }
+
+    applyTheme(themeName) {
+        // Remove existing theme classes
+        document.body.className = document.body.className.replace(/theme-\w+/g, '');
+        
+        // Add new theme class
+        document.body.classList.add(`theme-${themeName}`);
     }
 }
 

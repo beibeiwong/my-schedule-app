@@ -35,6 +35,7 @@
                 <span class="edit-hint">✏️ Click to edit</span>
             </div>
             <div class="header-actions">
+                <button id="theme-selector-btn" class="btn-secondary">🎨 Themes</button>
                 <button id="manage-categories-btn" class="btn-secondary">⚙️ Manage Categories</button>
                 <button id="add-activity-btn" class="btn-primary">+ Add Activity</button>
             </div>
@@ -110,6 +111,52 @@
                     <textarea id="activity-notes" placeholder="Notes (optional)"></textarea>
                     <button type="submit" class="btn-primary">Save Activity</button>
                 </form>
+            </div>
+        </div>
+
+        <!-- Theme Selector Modal -->
+        <div id="theme-modal" class="modal">
+            <div class="modal-content">
+                <span class="close" id="theme-close">&times;</span>
+                <h2>Choose Your Theme</h2>
+                
+                <div class="theme-grid">
+                    <div class="theme-option" data-theme="default">
+                        <div class="theme-preview default-preview"></div>
+                        <h3>Default</h3>
+                        <p>Clean and professional</p>
+                    </div>
+                    
+                    <div class="theme-option" data-theme="flower">
+                        <div class="theme-preview flower-preview"></div>
+                        <h3>🌸 Flower</h3>
+                        <p>Soft and blooming</p>
+                    </div>
+                    
+                    <div class="theme-option" data-theme="ocean">
+                        <div class="theme-preview ocean-preview"></div>
+                        <h3>🌊 Ocean</h3>
+                        <p>Calm and refreshing</p>
+                    </div>
+                    
+                    <div class="theme-option" data-theme="forest">
+                        <div class="theme-preview forest-preview"></div>
+                        <h3>🌲 Forest</h3>
+                        <p>Natural and peaceful</p>
+                    </div>
+                    
+                    <div class="theme-option" data-theme="urban">
+                        <div class="theme-preview urban-preview"></div>
+                        <h3>🏙️ Urban</h3>
+                        <p>Modern and sleek</p>
+                    </div>
+                    
+                    <div class="theme-option" data-theme="dark">
+                        <div class="theme-preview dark-preview"></div>
+                        <h3>🌙 Dark</h3>
+                        <p>Easy on the eyes</p>
+                    </div>
+                </div>
             </div>
         </div>
 
