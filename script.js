@@ -16,12 +16,18 @@ class ScheduleLogger {
         this.init();
     }
 
-    init() {
+    async init() {
         this.bindEvents();
         this.loadAppTitle();
         this.renderCategories();
         this.loadHolidays();
         this.setupCloudSync();
+        
+        // Auto-load from cloud if sync is enabled
+        if (this.syncEnabled) {
+            await this.loadFromCloud();
+        }
+        
         this.renderCurrentView();
     }
 
@@ -878,10 +884,25 @@ class ScheduleLogger {
     setupCloudSync() {
         if (this.syncEnabled) {
             this.addSyncButton();
+            this.updateSyncStatus();
             // Auto-sync every 5 minutes if enabled
             setInterval(() => this.syncData(), 5 * 60 * 1000);
         } else {
             this.addSetupSyncButton();
+            this.updateSyncStatus();
+        }
+    }
+
+    updateSyncStatus() {
+        const statusDiv = document.getElementById('sync-status');
+        if (!statusDiv) return;
+        
+        if (this.syncEnabled) {
+            const gistId = localStorage.getItem('gistId');
+            const lastSync = this.lastSync ? new Date(this.lastSync).toLocaleString() : 'Never';
+            statusDiv.innerHTML = `Sync: ${gistId ? 'Connected' : 'Setup'} | Last: ${lastSync} | Activities: ${this.activities.length}`;
+        } else {
+            statusDiv.innerHTML = 'Sync: Not enabled | Activities: ' + this.activities.length;
         }
     }
 
@@ -900,12 +921,21 @@ class ScheduleLogger {
     addSyncButton() {
         const headerActions = document.querySelector('.header-actions');
         if (!document.getElementById('sync-btn')) {
+            // Upload button
             const syncBtn = document.createElement('button');
             syncBtn.id = 'sync-btn';
             syncBtn.className = 'btn-secondary';
-            syncBtn.innerHTML = '☁️ Sync';
+            syncBtn.innerHTML = '☁️ Upload';
             syncBtn.onclick = () => this.syncData();
             headerActions.insertBefore(syncBtn, headerActions.firstChild);
+            
+            // Download button
+            const loadBtn = document.createElement('button');
+            loadBtn.id = 'load-btn';
+            loadBtn.className = 'btn-secondary';
+            loadBtn.innerHTML = '⬇️ Download';
+            loadBtn.onclick = () => this.loadFromCloud();
+            headerActions.insertBefore(loadBtn, headerActions.firstChild);
         }
     }
 
@@ -927,9 +957,21 @@ Your data will be stored in a private GitHub Gist.`);
             document.getElementById('setup-sync-btn').remove();
             this.addSyncButton();
             
-            // Initial sync
-            this.syncData();
-            alert('Sync setup complete! Your data will now sync across devices.');
+            // Ask user what to do
+            const choice = confirm(`Sync setup complete! 
+
+Click OK to UPLOAD your current data to cloud
+Click Cancel to DOWNLOAD existing data from cloud
+
+(If this is your first device, click OK)`);
+            
+            if (choice) {
+                // Upload current data
+                this.syncData();
+            } else {
+                // Try to download existing data
+                this.loadFromCloud();
+            }
         }
     }
 
@@ -960,10 +1002,11 @@ Your data will be stored in a private GitHub Gist.`);
             
             this.lastSync = new Date().toISOString();
             localStorage.setItem('lastSync', this.lastSync);
+            this.updateSyncStatus();
             
-            if (syncBtn) syncBtn.innerHTML = '✅ Synced';
+            if (syncBtn) syncBtn.innerHTML = '✅ Uploaded';
             setTimeout(() => {
-                if (syncBtn) syncBtn.innerHTML = '☁️ Sync';
+                if (syncBtn) syncBtn.innerHTML = '☁️ Upload';
             }, 2000);
             
         } catch (error) {
@@ -1018,10 +1061,20 @@ Your data will be stored in a private GitHub Gist.`);
     }
 
     async loadFromCloud() {
-        if (!this.syncEnabled) return;
+        if (!this.syncEnabled) {
+            alert('Sync not enabled. Click "☁️ Setup Sync" first.');
+            return;
+        }
+        
+        const loadBtn = document.getElementById('load-btn');
+        if (loadBtn) loadBtn.innerHTML = '⏳ Loading...';
         
         const gistId = localStorage.getItem('gistId');
-        if (!gistId) return;
+        if (!gistId) {
+            if (loadBtn) loadBtn.innerHTML = '⬇️ Download';
+            alert('No cloud data found. Upload data first using "☁️ Upload" button.');
+            return;
+        }
         
         try {
             const response = await fetch(`https://api.github.com/gists/${gistId}`, {
@@ -1036,30 +1089,39 @@ Your data will be stored in a private GitHub Gist.`);
             const content = gist.files['schedule-data.json'].content;
             const data = JSON.parse(content);
             
-            // Check if cloud data is newer
-            const cloudDate = new Date(data.lastModified);
-            const localDate = new Date(this.lastSync || 0);
+            // Always load cloud data when manually requested
+            this.activities = data.activities || [];
+            this.categories = data.categories || this.getDefaultCategories();
+            this.appTitle = data.appTitle || 'My Personal Schedule';
             
-            if (cloudDate > localDate) {
-                this.activities = data.activities || [];
-                this.categories = data.categories || this.getDefaultCategories();
-                this.appTitle = data.appTitle || 'My Personal Schedule';
-                
-                // Save to local storage
-                localStorage.setItem('personalSchedule', JSON.stringify(this.activities));
-                localStorage.setItem('scheduleCategories', JSON.stringify(this.categories));
-                localStorage.setItem('appTitle', this.appTitle);
-                localStorage.setItem('lastSync', data.lastModified);
-                
-                // Refresh UI
-                this.loadAppTitle();
-                this.renderCategories();
-                this.renderCurrentView();
-                
-                alert('Data synced from cloud!');
-            }
+            // Save to local storage
+            localStorage.setItem('personalSchedule', JSON.stringify(this.activities));
+            localStorage.setItem('scheduleCategories', JSON.stringify(this.categories));
+            localStorage.setItem('appTitle', this.appTitle);
+            localStorage.setItem('lastSync', data.lastModified);
+            this.lastSync = data.lastModified;
+            
+            // Refresh UI
+            this.loadAppTitle();
+            this.renderCategories();
+            this.renderCurrentView();
+            this.updateSyncStatus();
+            
+            if (loadBtn) loadBtn.innerHTML = '✅ Downloaded';
+            setTimeout(() => {
+                if (loadBtn) loadBtn.innerHTML = '⬇️ Download';
+            }, 2000);
+            
+            const activityCount = this.activities.length;
+            alert(`✅ Downloaded ${activityCount} activities from cloud!`);
+            
         } catch (error) {
             console.error('Failed to load from cloud:', error);
+            if (loadBtn) loadBtn.innerHTML = '❌ Failed';
+            setTimeout(() => {
+                if (loadBtn) loadBtn.innerHTML = '⬇️ Download';
+            }, 3000);
+            alert('❌ Failed to download from cloud. Check your internet connection.');
         }
     }
 }
